@@ -28,6 +28,7 @@
 
 // Libraries
 #include <cassert>
+#include <vector>
 #include <reactphysics3d/mathematics/mathematics.h>
 #include <reactphysics3d/collision/shapes/AABB.h>
 #include <reactphysics3d/collision/shapes/TriangleShape.h>
