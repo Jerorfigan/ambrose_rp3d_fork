@@ -104,6 +104,9 @@ class HeapAllocator : public MemoryAllocator {
 
         /// Allocated memory (in bytes)
         size_t mAllocatedMemory;
+        size_t mTotalHeaderSize;
+        size_t mUsedMemorySize;
+        size_t mRemainingMemorySize;
 
         /// Pointer to the first memory unit of the linked-list
         MemoryUnitHeader* mMemoryUnits;
@@ -159,6 +162,11 @@ class HeapAllocator : public MemoryAllocator {
 
         /// Release previously allocated memory.
         virtual void release(void* pointer, size_t size) override;
+
+        size_t getTotalMemorySize() const;
+        size_t getTotalHeaderSize() const;
+        size_t getUsedMemorySize() const;
+        size_t getRemainingMemorySize() const;
 };
 
 }

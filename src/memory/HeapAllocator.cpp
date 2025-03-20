@@ -36,7 +36,7 @@ size_t HeapAllocator::INIT_ALLOCATED_SIZE = 5 * 1048576;    // 5 Mb
 
 // Constructor
 HeapAllocator::HeapAllocator(MemoryAllocator& baseAllocator, size_t initAllocatedMemory)
-              : mBaseAllocator(baseAllocator), mAllocatedMemory(0), mMemoryUnits(nullptr), mFreeUnits(nullptr) {
+              : mBaseAllocator(baseAllocator), mAllocatedMemory(0), mTotalHeaderSize(0), mUsedMemorySize(0), mRemainingMemorySize(0), mMemoryUnits(nullptr), mFreeUnits(nullptr) {
 
 #ifndef NDEBUG
         mNbTimesAllocateMethodCalled = 0;
@@ -99,21 +99,23 @@ void HeapAllocator::splitMemoryUnit(MemoryUnitHeader* unit, size_t size) {
         unit->isNextContiguousMemory = true;
         unit->size = size;
 
-       assert(unit->previousUnit == nullptr || unit->previousUnit->nextUnit == unit);
-       assert(unit->nextUnit == nullptr || unit->nextUnit->previousUnit == unit);
+        assert(unit->previousUnit == nullptr || unit->previousUnit->nextUnit == unit);
+        assert(unit->nextUnit == nullptr || unit->nextUnit->previousUnit == unit);
 
-       assert(unit->previousFreeUnit == nullptr || unit->previousFreeUnit->nextFreeUnit == unit);
-       assert(unit->nextFreeUnit == nullptr || unit->nextFreeUnit->previousFreeUnit == unit);
+        assert(unit->previousFreeUnit == nullptr || unit->previousFreeUnit->nextFreeUnit == unit);
+        assert(unit->nextFreeUnit == nullptr || unit->nextFreeUnit->previousFreeUnit == unit);
 
-       assert(newUnit->previousUnit == nullptr || newUnit->previousUnit->nextUnit == newUnit);
-       assert(newUnit->nextUnit == nullptr || newUnit->nextUnit->previousUnit == newUnit);
+        assert(newUnit->previousUnit == nullptr || newUnit->previousUnit->nextUnit == newUnit);
+        assert(newUnit->nextUnit == nullptr || newUnit->nextUnit->previousUnit == newUnit);
 
-       assert(newUnit->previousFreeUnit->nextFreeUnit == newUnit);
-       assert(newUnit->nextFreeUnit == nullptr || newUnit->nextFreeUnit->previousFreeUnit == newUnit);
+        assert(newUnit->previousFreeUnit->nextFreeUnit == newUnit);
+        assert(newUnit->nextFreeUnit == nullptr || newUnit->nextFreeUnit->previousFreeUnit == newUnit);
 
-       assert(unit->nextFreeUnit == newUnit);
-       assert(newUnit->previousFreeUnit == unit);
-       assert(!newUnit->isAllocated);
+        assert(unit->nextFreeUnit == newUnit);
+        assert(newUnit->previousFreeUnit == unit);
+        assert(!newUnit->isAllocated);
+
+        mTotalHeaderSize += sizeof(MemoryUnitHeader);
    }
 }
 
@@ -186,6 +188,9 @@ void* HeapAllocator::allocate(size_t size) {
     // Check that allocated memory is 16-bytes aligned
     assert(reinterpret_cast<uintptr_t>(allocatedMemory) % GLOBAL_ALIGNMENT == 0);
 
+    mUsedMemorySize += totalSize;
+    assert(mRemainingMemorySize >= totalSize);
+    mRemainingMemorySize -= totalSize;
     return allocatedMemory;
 }
 
@@ -242,6 +247,9 @@ void HeapAllocator::release(void* pointer, size_t size) {
     unit->isAllocated = false;
 
     MemoryUnitHeader* currentUnit = unit;
+    mRemainingMemorySize += currentUnit->size;
+    assert(mUsedMemorySize >= currentUnit->size);
+    mUsedMemorySize -= currentUnit->size;
 
     // If the previous unit is not allocated and memory is contiguous to the current unit
     if (unit->previousUnit != nullptr && !unit->previousUnit->isAllocated && unit->previousUnit->isNextContiguousMemory) {
@@ -296,26 +304,28 @@ void HeapAllocator::removeFromFreeUnits(MemoryUnitHeader* unit) {
 // Merge two contiguous memory units that are not allocated.
 /// Memory unit 2 will be merged into memory unit 1 and memory unit 2 will be removed
 void HeapAllocator::mergeUnits(MemoryUnitHeader* unit1, MemoryUnitHeader* unit2) {
+    assert(unit2->previousUnit == unit1);
+    assert(unit1->nextUnit == unit2);
+    assert(!unit1->isAllocated);
+    assert(!unit2->isAllocated);
+    assert(unit1->isNextContiguousMemory);
 
-   assert(unit2->previousUnit == unit1);
-   assert(unit1->nextUnit == unit2);
-   assert(!unit1->isAllocated);
-   assert(!unit2->isAllocated);
-   assert(unit1->isNextContiguousMemory);
-
-   unit1->size += unit2->size + sizeof(MemoryUnitHeader);
-   unit1->nextUnit = unit2->nextUnit;
-   assert(unit1->nextUnit != unit1);
-   if (unit2->nextUnit != nullptr) {
+    unit1->size += unit2->size + sizeof(MemoryUnitHeader);
+    unit1->nextUnit = unit2->nextUnit;
+    assert(unit1->nextUnit != unit1);
+    if (unit2->nextUnit != nullptr) {
        unit2->nextUnit->previousUnit = unit1;
-   }
-   unit1->isNextContiguousMemory = unit2->isNextContiguousMemory;
+    }
+    unit1->isNextContiguousMemory = unit2->isNextContiguousMemory;
 
-   // Destroy unit 2
-   unit2->~MemoryUnitHeader();
+    // Destroy unit 2
+    unit2->~MemoryUnitHeader();
 
-   assert(unit1->previousUnit == nullptr || unit1->previousUnit->nextUnit == unit1);
-   assert(unit1->nextUnit == nullptr || unit1->nextUnit->previousUnit == unit1);
+    assert(unit1->previousUnit == nullptr || unit1->previousUnit->nextUnit == unit1);
+    assert(unit1->nextUnit == nullptr || unit1->nextUnit->previousUnit == unit1);
+
+    assert(mTotalHeaderSize >= sizeof(MemoryUnitHeader));
+    mTotalHeaderSize -= sizeof(MemoryUnitHeader);
 }
 
 // Reserve more memory for the allocator
@@ -348,4 +358,23 @@ void HeapAllocator::reserve(size_t sizeToAllocate) {
     mFreeUnits = mMemoryUnits;
 
     mAllocatedMemory += sizeToAllocate;
+    mTotalHeaderSize += sizeHeader;
+    mRemainingMemorySize += sizeToAllocate;
 }
+
+size_t HeapAllocator::getTotalMemorySize() const {
+    return mTotalHeaderSize + mUsedMemorySize + mRemainingMemorySize;
+}
+
+size_t HeapAllocator::getTotalHeaderSize() const {
+    return mTotalHeaderSize;
+}
+
+size_t HeapAllocator::getUsedMemorySize() const {
+    return mUsedMemorySize;
+}
+
+size_t HeapAllocator::getRemainingMemorySize() const {
+    return mRemainingMemorySize;
+}
+
