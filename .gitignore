@@ -43,3 +43,10 @@ documentation/UserManual/*.tmp
 documentation/UserManual/*.toc
 documentation/UserManual/*.xref
 documentation/UserManual/*.xref
+testbed/*.html
+
+# Directories
+#####################
+build/*
+testbed/build/*
+
