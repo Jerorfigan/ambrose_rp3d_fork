@@ -129,6 +129,8 @@ class PoolAllocator : public MemoryAllocator {
         /// This variable is used in debug mode to check that the allocate() and release()
         /// methods are called the same number of times
         int mNbTimesAllocateMethodCalled;
+        size_t mUsedMemorySize;
+        size_t mRemainingMemorySize;
 #endif
 
     public :
@@ -150,6 +152,14 @@ class PoolAllocator : public MemoryAllocator {
 
         /// Release previously allocated memory.
         virtual void release(void* pointer, size_t size) override;
+
+        #ifndef NDEBUG
+        uint32 getAllocatedBlockCnt() const;
+        uint32 getUsedBlockCnt() const;
+        size_t getTotalMemorySize() const;
+        size_t getUsedMemorySize() const;
+        size_t getRemainingMemorySize() const;
+        #endif
 };
 
 }

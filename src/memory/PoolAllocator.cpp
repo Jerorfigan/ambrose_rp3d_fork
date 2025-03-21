@@ -49,6 +49,8 @@ PoolAllocator::PoolAllocator(MemoryAllocator& baseAllocator) : mBaseAllocator(ba
 
 #ifndef NDEBUG
         mNbTimesAllocateMethodCalled = 0;
+        mUsedMemorySize = 0;
+        mRemainingMemorySize = mNbAllocatedMemoryBlocks*BLOCK_SIZE;
 #endif
 
     // If the mMapSizeToHeapIndex has not been initialized yet
@@ -128,6 +130,8 @@ void* PoolAllocator::allocate(size_t size) {
     int indexHeap = mMapSizeToHeapIndex[size];
     assert(indexHeap >= 0 && indexHeap < NB_HEAPS);
 
+    void* allocatedMemory = 0;
+
     // If there still are free memory units in the corresponding heap
     if (mFreeMemoryUnits[indexHeap] != nullptr) {
 
@@ -135,12 +139,10 @@ void* PoolAllocator::allocate(size_t size) {
         MemoryUnit* unit = mFreeMemoryUnits[indexHeap];
         mFreeMemoryUnits[indexHeap] = unit->nextUnit;
 
-        void* allocatedMemory = static_cast<void*>(unit);
+        allocatedMemory = static_cast<void*>(unit);
 
         // Check that allocated memory is 16-bytes aligned
         assert(reinterpret_cast<uintptr_t>(allocatedMemory) % GLOBAL_ALIGNMENT == 0);
-
-        return allocatedMemory;
     }
     else {  // If there is no more free memory units in the corresponding heap
 
@@ -154,6 +156,10 @@ void* PoolAllocator::allocate(size_t size) {
             memcpy(mMemoryBlocks, currentMemoryBlocks, mNbCurrentMemoryBlocks * sizeof(MemoryBlock));
             memset(mMemoryBlocks + mNbCurrentMemoryBlocks, 0, 64 * sizeof(MemoryBlock));
             mBaseAllocator.release(currentMemoryBlocks, mNbCurrentMemoryBlocks * sizeof(MemoryBlock));
+        
+            #ifndef NDEBUG
+            mRemainingMemorySize += 64*BLOCK_SIZE;
+            #endif
         }
 
         // Allocate a new memory blocks for the corresponding heap and divide it in many
@@ -181,14 +187,21 @@ void* PoolAllocator::allocate(size_t size) {
         mFreeMemoryUnits[indexHeap] = newBlock->memoryUnits->nextUnit;
         mNbCurrentMemoryBlocks++;
 
-        void* allocatedMemory = newBlock->memoryUnits;
+        allocatedMemory = newBlock->memoryUnits;
 
         // Check that allocated memory is 16-bytes aligned
         assert(reinterpret_cast<uintptr_t>(allocatedMemory) % GLOBAL_ALIGNMENT == 0);
-
-        // Return the pointer to the first memory unit of the new allocated block
-        return allocatedMemory;
     }
+
+    #ifndef NDEBUG
+    size_t unitSize = mUnitSizes[indexHeap];
+    mUsedMemorySize += unitSize;
+    assert(mRemainingMemorySize >= unitSize);
+    mRemainingMemorySize -= unitSize;
+    #endif
+
+    // Return the pointer to the first memory unit of the new allocated block
+    return allocatedMemory;
 }
 
 // Release previously allocated memory.
@@ -223,4 +236,34 @@ void PoolAllocator::release(void* pointer, size_t size) {
     MemoryUnit* releasedUnit = static_cast<MemoryUnit*>(pointer);
     releasedUnit->nextUnit = mFreeMemoryUnits[indexHeap];
     mFreeMemoryUnits[indexHeap] = releasedUnit;
+
+    #ifndef NDEBUG
+    size_t unitSize = mUnitSizes[indexHeap];
+    mRemainingMemorySize += unitSize;
+    assert(mUsedMemorySize >= unitSize);
+    mUsedMemorySize -= unitSize;
+    #endif
 }
+
+#ifndef NDEBUG
+uint32 PoolAllocator::getAllocatedBlockCnt() const {
+    return mNbAllocatedMemoryBlocks;
+}
+
+uint32 PoolAllocator::getUsedBlockCnt() const {
+    return mNbCurrentMemoryBlocks;
+}
+
+size_t PoolAllocator::getTotalMemorySize() const {
+    return mUsedMemorySize + mRemainingMemorySize;
+}
+
+size_t PoolAllocator::getUsedMemorySize() const {
+    return mUsedMemorySize;
+}
+
+size_t PoolAllocator::getRemainingMemorySize() const {
+    return mRemainingMemorySize;
+}
+#endif
+
