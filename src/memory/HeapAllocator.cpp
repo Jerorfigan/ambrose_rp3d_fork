@@ -36,10 +36,9 @@ size_t HeapAllocator::INIT_ALLOCATED_SIZE = 5 * 1048576;    // 5 Mb
 
 // Constructor
 HeapAllocator::HeapAllocator(MemoryAllocator& baseAllocator, size_t initAllocatedMemory)
-              : mBaseAllocator(baseAllocator), mAllocatedMemory(0), mTotalHeaderSize(0), mUsedMemorySize(0), mRemainingMemorySize(0), mMemoryUnits(nullptr), mFreeUnits(nullptr) {
-
+              : mBaseAllocator(baseAllocator), mAllocatedMemory(0), mMemoryUnits(nullptr), mFreeUnits(nullptr) {
 #ifndef NDEBUG
-        mNbTimesAllocateMethodCalled = 0;
+        mNbTimesAllocateMethodCalled = mTotalHeaderSize = mUsedMemorySize = mRemainingMemorySize = mBlockCnt = 0;
 #endif
 
     reserve(initAllocatedMemory == 0 ? INIT_ALLOCATED_SIZE : initAllocatedMemory);
@@ -115,7 +114,10 @@ void HeapAllocator::splitMemoryUnit(MemoryUnitHeader* unit, size_t size) {
         assert(newUnit->previousFreeUnit == unit);
         assert(!newUnit->isAllocated);
 
+        #ifndef NDEBUG
         mTotalHeaderSize += sizeof(MemoryUnitHeader);
+        mBlockCnt++;
+        #endif
    }
 }
 
@@ -188,9 +190,11 @@ void* HeapAllocator::allocate(size_t size) {
     // Check that allocated memory is 16-bytes aligned
     assert(reinterpret_cast<uintptr_t>(allocatedMemory) % GLOBAL_ALIGNMENT == 0);
 
+    #ifndef NDEBUG
     mUsedMemorySize += totalSize;
     assert(mRemainingMemorySize >= totalSize);
     mRemainingMemorySize -= totalSize;
+    #endif
     return allocatedMemory;
 }
 
@@ -247,9 +251,11 @@ void HeapAllocator::release(void* pointer, size_t size) {
     unit->isAllocated = false;
 
     MemoryUnitHeader* currentUnit = unit;
+    #ifndef NDEBUG
     mRemainingMemorySize += currentUnit->size;
     assert(mUsedMemorySize >= currentUnit->size);
     mUsedMemorySize -= currentUnit->size;
+    #endif
 
     // If the previous unit is not allocated and memory is contiguous to the current unit
     if (unit->previousUnit != nullptr && !unit->previousUnit->isAllocated && unit->previousUnit->isNextContiguousMemory) {
@@ -324,8 +330,12 @@ void HeapAllocator::mergeUnits(MemoryUnitHeader* unit1, MemoryUnitHeader* unit2)
     assert(unit1->previousUnit == nullptr || unit1->previousUnit->nextUnit == unit1);
     assert(unit1->nextUnit == nullptr || unit1->nextUnit->previousUnit == unit1);
 
+    #ifndef NDEBUG
     assert(mTotalHeaderSize >= sizeof(MemoryUnitHeader));
     mTotalHeaderSize -= sizeof(MemoryUnitHeader);
+    assert(mBlockCnt);
+    mBlockCnt--;
+    #endif
 }
 
 // Reserve more memory for the allocator
@@ -358,10 +368,14 @@ void HeapAllocator::reserve(size_t sizeToAllocate) {
     mFreeUnits = mMemoryUnits;
 
     mAllocatedMemory += sizeToAllocate;
+    #ifndef NDEBUG
     mTotalHeaderSize += sizeHeader;
     mRemainingMemorySize += sizeToAllocate;
+    mBlockCnt++;
+    #endif
 }
 
+#ifndef NDEBUG
 size_t HeapAllocator::getTotalMemorySize() const {
     return mTotalHeaderSize + mUsedMemorySize + mRemainingMemorySize;
 }
@@ -377,4 +391,9 @@ size_t HeapAllocator::getUsedMemorySize() const {
 size_t HeapAllocator::getRemainingMemorySize() const {
     return mRemainingMemorySize;
 }
+
+uint32 HeapAllocator::getBlockCnt() const {
+    return mBlockCnt;
+}
+#endif
 
