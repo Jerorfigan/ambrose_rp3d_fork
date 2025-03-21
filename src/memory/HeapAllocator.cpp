@@ -117,6 +117,8 @@ void HeapAllocator::splitMemoryUnit(MemoryUnitHeader* unit, size_t size) {
         #ifndef NDEBUG
         mTotalHeaderSize += sizeof(MemoryUnitHeader);
         mBlockCnt++;
+        assert(mRemainingMemorySize >= sizeof(MemoryUnitHeader));
+        mRemainingMemorySize -= sizeof(MemoryUnitHeader);
         #endif
    }
 }
@@ -331,6 +333,7 @@ void HeapAllocator::mergeUnits(MemoryUnitHeader* unit1, MemoryUnitHeader* unit2)
     assert(unit1->nextUnit == nullptr || unit1->nextUnit->previousUnit == unit1);
 
     #ifndef NDEBUG
+    mRemainingMemorySize += sizeof(MemoryUnitHeader);
     assert(mTotalHeaderSize >= sizeof(MemoryUnitHeader));
     mTotalHeaderSize -= sizeof(MemoryUnitHeader);
     assert(mBlockCnt);
