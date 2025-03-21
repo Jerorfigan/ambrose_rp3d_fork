@@ -130,3 +130,18 @@ void SingleFrameAllocator::reset() {
     // Reset the current offset at the beginning of the block
     mCurrentOffset = 0;
 }
+
+#ifndef NDEBUG
+size_t SingleFrameAllocator::getTotalMemorySize() const {
+    return mTotalSizeBytes;
+}
+
+size_t SingleFrameAllocator::getUsedMemorySize() const {
+    return mCurrentOffset;
+}
+
+size_t SingleFrameAllocator::getRemainingMemorySize() const {
+    return getTotalMemorySize() - getUsedMemorySize();
+}
+#endif
+

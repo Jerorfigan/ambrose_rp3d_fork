@@ -89,6 +89,12 @@ class SingleFrameAllocator : public MemoryAllocator {
 
         /// Reset the marker of the current allocated memory
         virtual void reset();
+
+        #ifndef NDEBUG
+        size_t getTotalMemorySize() const;
+        size_t getUsedMemorySize() const;
+        size_t getRemainingMemorySize() const;
+        #endif
 };
 
 }
