@@ -193,9 +193,9 @@ void* HeapAllocator::allocate(size_t size) {
     assert(reinterpret_cast<uintptr_t>(allocatedMemory) % GLOBAL_ALIGNMENT == 0);
 
     #ifndef NDEBUG
-    mUsedMemorySize += totalSize;
-    assert(mRemainingMemorySize >= totalSize);
-    mRemainingMemorySize -= totalSize;
+    mUsedMemorySize += currentUnit->size;
+    assert(mRemainingMemorySize >= currentUnit->size);
+    mRemainingMemorySize -= currentUnit->size;
     #endif
     return allocatedMemory;
 }
