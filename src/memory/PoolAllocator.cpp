@@ -50,7 +50,7 @@ PoolAllocator::PoolAllocator(MemoryAllocator& baseAllocator) : mBaseAllocator(ba
 #ifndef NDEBUG
         mNbTimesAllocateMethodCalled = 0;
         mUsedMemorySize = 0;
-        mRemainingMemorySize = mNbAllocatedMemoryBlocks*BLOCK_SIZE;
+        mRemainingMemorySize = 0;
 #endif
 
     // If the mMapSizeToHeapIndex has not been initialized yet
@@ -155,11 +155,7 @@ void* PoolAllocator::allocate(size_t size) {
             mMemoryBlocks = static_cast<MemoryBlock*>(mBaseAllocator.allocate(mNbAllocatedMemoryBlocks * sizeof(MemoryBlock)));
             memcpy(mMemoryBlocks, currentMemoryBlocks, mNbCurrentMemoryBlocks * sizeof(MemoryBlock));
             memset(mMemoryBlocks + mNbCurrentMemoryBlocks, 0, 64 * sizeof(MemoryBlock));
-            mBaseAllocator.release(currentMemoryBlocks, mNbCurrentMemoryBlocks * sizeof(MemoryBlock));
-        
-            #ifndef NDEBUG
-            mRemainingMemorySize += 64*BLOCK_SIZE;
-            #endif
+            mBaseAllocator.release(currentMemoryBlocks, mNbCurrentMemoryBlocks * sizeof(MemoryBlock));  
         }
 
         // Allocate a new memory blocks for the corresponding heap and divide it in many
@@ -191,6 +187,10 @@ void* PoolAllocator::allocate(size_t size) {
 
         // Check that allocated memory is 16-bytes aligned
         assert(reinterpret_cast<uintptr_t>(allocatedMemory) % GLOBAL_ALIGNMENT == 0);
+
+        #ifndef NDEBUG
+        mRemainingMemorySize += BLOCK_SIZE;
+        #endif
     }
 
     #ifndef NDEBUG
@@ -255,7 +255,11 @@ uint32 PoolAllocator::getUsedBlockCnt() const {
 }
 
 size_t PoolAllocator::getTotalMemorySize() const {
-    return mUsedMemorySize + mRemainingMemorySize;
+    return getTotalHeaderSize() + mUsedMemorySize + mRemainingMemorySize;
+}
+
+size_t PoolAllocator::getTotalHeaderSize() const {
+    return mNbAllocatedMemoryBlocks*sizeof(MemoryBlock);
 }
 
 size_t PoolAllocator::getUsedMemorySize() const {

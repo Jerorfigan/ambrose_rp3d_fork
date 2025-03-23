@@ -157,6 +157,7 @@ class PoolAllocator : public MemoryAllocator {
         uint32 getAllocatedBlockCnt() const;
         uint32 getUsedBlockCnt() const;
         size_t getTotalMemorySize() const;
+        size_t getTotalHeaderSize() const;
         size_t getUsedMemorySize() const;
         size_t getRemainingMemorySize() const;
         #endif
