@@ -839,3 +839,46 @@ void PhysicsCommon::deleteProfiler(Profiler* profiler) {
    mMemoryManager.release(MemoryManager::AllocationType::Pool, profiler, sizeof(Profiler));
 }
 #endif
+
+#ifndef NDEBUG
+uint64 PhysicsCommon::getPhysicsWorldCnt() const {
+    return mPhysicsWorlds.size();
+}
+
+uint64 PhysicsCommon::getSphereShapeCnt() const {
+    return mSphereShapes.size();
+}
+
+uint64 PhysicsCommon::getBoxShapeCnt() const {
+    return mBoxShapes.size();
+}
+
+uint64 PhysicsCommon::getCapsuleShapeCnt() const {
+    return mCapsuleShapes.size();
+}
+
+uint64 PhysicsCommon::getConvexMeshShapeCnt() const {
+    return mConvexMeshShapes.size();
+}
+
+uint64 PhysicsCommon::getConcaveMeshShapeCnt() const {
+    return mConcaveMeshShapes.size();
+}
+
+uint64 PhysicsCommon::getHeightFieldShapeCnt() const {
+    return mHeightFieldShapes.size();
+}
+
+uint64 PhysicsCommon::getConvexMeshCnt() const {
+    return mConvexMeshes.size();
+}
+
+uint64 PhysicsCommon::getTriangleMeshCnt() const {
+    return mTriangleMeshes.size();
+}
+
+uint64 PhysicsCommon::getHeightFieldCnt() const {
+    return mHeightFields.size();
+}
+#endif
+

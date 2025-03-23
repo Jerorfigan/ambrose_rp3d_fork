@@ -256,6 +256,20 @@ class PhysicsCommon {
         /// Set the logger
         static void setLogger(Logger* logger);
 
+        #ifndef NDEBUG
+        uint64 getPhysicsWorldCnt() const;
+
+        uint64 getSphereShapeCnt() const;
+        uint64 getBoxShapeCnt() const;
+        uint64 getCapsuleShapeCnt() const;
+        uint64 getConvexMeshShapeCnt() const;
+        uint64 getConcaveMeshShapeCnt() const;
+        uint64 getHeightFieldShapeCnt() const;
+
+        uint64 getConvexMeshCnt() const;
+        uint64 getTriangleMeshCnt() const;
+        uint64 getHeightFieldCnt() const;
+        #endif
 
         // ---------- Friendship ---------- //
 
